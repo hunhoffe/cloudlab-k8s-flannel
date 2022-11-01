@@ -2,7 +2,7 @@
 set -x
 
 # Unlike home directories, this directory will be included in the image
-USER_GROUP=profileuser
+USER_GROUP=k8suser
 INSTALL_DIR=/home/k8s-flannel
 
 # General updates
