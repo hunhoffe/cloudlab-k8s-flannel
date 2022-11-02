@@ -1,8 +1,15 @@
 #!/bin/bash
 set -x
 
+# Start with Cloudlab Ubuntu 20.04 image
+
+# Use particular docker and kubernetes versions. When I've tried to upgrade, I've seen slowdowns in 
+# pod creation.
+DOCKER_VERSION_STRING=5:20.10.12~3-0~ubuntu-focal
+KUBERNETES_VERSION_STRING=1.23.3-00
+
 # Unlike home directories, this directory will be included in the image
-USER_GROUP=k8suser
+USER_GROUP=k8s-flannel
 INSTALL_DIR=/home/k8s-flannel
 
 # General updates
@@ -14,56 +21,41 @@ sudo apt autoremove -y
 sudo apt install -y python3-pip
 python3 -m pip install --upgrade pip
 
-# Turn off swap
-sudo swapoff -a
-sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-
-# Set containerd configuraiton
-sudo tee /etc/modules-load.d/containerd.conf <<EOF
-overlay
-br_netfilter
-EOF
-sudo modprobe overlay
-sudo modprobe br_netfilter
-
-# Set kubernetes networking settings
-sudo tee /etc/sysctl.d/kubernetes.conf <<EOF
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-
-# Reload to load above changes
-sudo sysctl --system
-
-# Install containerd
-sudo apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmour -o /etc/apt/trusted.gpg.d/docker.gpg
-sudo apt-add-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+# Install docker (https://docs.docker.com/engine/install/ubuntu/)
+sudo apt install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
-sudo apt install -y containerd.io
-sudo apt-mark hold containerd.io
+sudo apt install -y docker-ce=$DOCKER_VERSION_STRING docker-ce-cli=$DOCKER_VERSION_STRING containerd.io docker-compose-plugin
 
-# Configure containerd
-containerd config default | sudo tee /etc/containerd/config.toml >/dev/null 2>&1
-sudo sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
-
-# Enable containerd system and check status
-sudo systemctl restart containerd
-sudo systemctl enable containerd
-sudo systemctl status containerd | grep "active (running)" || (echo "ERROR: containerd service not running, exiting."; exit -1)
+# Set to use cgroupdriver
+echo -e '{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker || (echo "ERROR: Docker installation failed, exiting." && exit -1)
+sudo docker run hello-world | grep "Hello from Docker!" || (echo "ERROR: Docker installation failed, exiting." && exit -1)
 
 # Install Kubernetes
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-sudo apt-add-repository -y "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+sudo curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+echo 'deb http://apt.kubernetes.io/ kubernetes-xenial main' | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
 sudo apt update
-sudo apt install -y kubelet kubeadm kubectl
-sudo apt-mark hold kubelet kubeadm kubectl
+sudo apt install -y kubelet=$KUBERNETES_VERSION_STRING kubeadm=$KUBERNETES_VERSION_STRING kubectl=$KUBERNETES_VERSION_STRING
 
-# Prepare kubelet to use private cloudlab IP address
+# Set to use private IP
 sudo sed -i.bak "s/KUBELET_CONFIG_ARGS=--config=\/var\/lib\/kubelet\/config\.yaml/KUBELET_CONFIG_ARGS=--config=\/var\/lib\/kubelet\/config\.yaml --node-ip=REPLACE_ME_WITH_IP/g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
-# Make sure the $INSTALL_DIR can be accessible to everyone with access to this profile
+# Create $USER_GROUP group so $INSTALL_DIR can be accessible to everyone
 sudo groupadd $USER_GROUP
 sudo mkdir $INSTALL_DIR
 sudo chgrp -R $USER_GROUP $INSTALL_DIR
