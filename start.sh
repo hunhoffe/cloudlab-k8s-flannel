@@ -251,7 +251,7 @@ if [ $1 == $SECONDARY_ARG ] ; then
     # Use second argument (node IP) to replace filler in kubeadm configuration
     sudo sed -i.bak "s/REPLACE_ME_WITH_IP/$2/g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
-    # setup_secondary $2
+    setup_secondary $2
     exit 0
 fi
 
@@ -274,9 +274,6 @@ sudo sed -i.bak "s/REPLACE_ME_WITH_IP/$2/g" /etc/systemd/system/kubelet.service.
 # Finish setting up the primary node
 # Argument is node_ip
 setup_primary $2
-
-# TODO: exit early for now
-exit 0
 
 # Apply flannel networking
 apply_flannel
