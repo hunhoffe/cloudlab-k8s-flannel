@@ -96,35 +96,27 @@ setup_primary() {
     printf "%s: %s\n" "$(date +"%T.%N")" "Done!"
 }
 
-apply_calico() {
-    # https://projectcalico.docs.tigera.io/getting-started/kubernetes/helm
-    helm repo add projectcalico https://projectcalico.docs.tigera.io/charts > $INSTALL_DIR/calico_install.log 2>&1 
+apply_flannel() {
+    kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml >> $INSTALL_DIR/flannel_install.log 2>&1
     if [ $? -ne 0 ]; then
-       echo "***Error: Error when loading helm calico repo. Log written to $INSTALL_DIR/calico_install.log"
+       echo "***Error: Error when installing flannel. Logs in $INSTALL_DIR/flannelinstall.log"
        exit 1
     fi
-    printf "%s: %s\n" "$(date +"%T.%N")" "Loaded helm calico repo"
+    printf "%s: %s\n" "$(date +"%T.%N")" "Applied Flannel networking"
 
-    helm install calico projectcalico/tigera-operator --version v3.22.0 >> $INSTALL_DIR/calico_install.log 2>&1
-    if [ $? -ne 0 ]; then
-       echo "***Error: Error when installing calico with helm. Log appended to $INSTALL_DIR/calico_install.log"
-       exit 1
-    fi
-    printf "%s: %s\n" "$(date +"%T.%N")" "Applied Calico networking with helm"
-
-    # wait for calico pods to be in ready state
-    printf "%s: %s\n" "$(date +"%T.%N")" "Waiting for calico pods to have status of 'Running': "
-    NUM_PODS=$(kubectl get pods -n calico-system | wc -l)
-    NUM_RUNNING=$(kubectl get pods -n calico-system | grep " Running" | wc -l)
+    # wait for flannel pods to be in ready state
+    printf "%s: %s\n" "$(date +"%T.%N")" "Waiting for flannel pods to have status of 'Running': "
+    NUM_PODS=$(kubectl get pods -n kube-flannel | wc -l)
+    NUM_RUNNING=$(kubectl get pods -n kube-flannel | grep " Running" | wc -l)
     NUM_RUNNING=$((NUM_PODS-NUM_RUNNING))
     while [ "$NUM_RUNNING" -ne 0 ]
     do
         sleep 1
         printf "."
-        NUM_RUNNING=$(kubectl get pods -n calico-system | grep " Running" | wc -l)
+        NUM_RUNNING=$(kubectl get pods -n kube-flannel | grep " Running" | wc -l)
         NUM_RUNNING=$((NUM_PODS-NUM_RUNNING))
     done
-    printf "%s: %s\n" "$(date +"%T.%N")" "Calico pods running!"
+    printf "%s: %s\n" "$(date +"%T.%N")" "Flannel pods running!"
     
     # wait for kube-system pods to be in ready state
     printf "%s: %s\n" "$(date +"%T.%N")" "Waiting for all system pods to have status of 'Running': "
@@ -259,8 +251,8 @@ setup_primary $2
 # TODO: exit early for now
 exit 0
 
-# Apply calico networking
-apply_calico
+# Apply flannel networking
+apply_flannel
 
 # Coordinate master to add nodes to the kubernetes cluster
 # Argument is number of nodes
