@@ -80,14 +80,13 @@ for i in range(params.nodeCount):
     name = "node"+str(i+1)
     create_node(name, nodes, lan)
 
-# TODO: run start scripts to init k8s cluster
 # Iterate over secondary nodes first
-#for i, node in enumerate(nodes[1:]):
-#    node.addService(rspec.Execute(shell="bash", command="/local/repository/start.sh secondary {}.{} {} > /home/k8s-flannel/start.log 2>&1 &".format(
-#      BASE_IP, i + 2, params.startKubernetes)))
+for i, node in enumerate(nodes[1:]):
+    node.addService(rspec.Execute(shell="bash", command="/local/repository/start.sh secondary {}.{} {} > /home/k8s-flannel/start.log 2>&1 &".format(
+      BASE_IP, i + 2, params.startKubernetes)))
 
 # Start primary node
-#nodes[0].addService(rspec.Execute(shell="bash", command="/local/repository/start.sh primary {}.1 {} {} {} {} {} {} > /home/k8s-flannel/start.log 2>&1".format(
-#  BASE_IP, params.nodeCount, params.startKubernetes, params.deployOpenWhisk, params.numInvokers, params.invokerEngine, params.schedulerEnabled)))
+nodes[0].addService(rspec.Execute(shell="bash", command="/local/repository/start.sh primary {}.1 {} {} > /home/k8s-flannel/start.log 2>&1".format(
+  BASE_IP, params.nodeCount, params.startKubernetes)))
 
 pc.printRequestRSpec()
