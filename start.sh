@@ -179,7 +179,7 @@ apply_multus() {
     git checkout $MULTUS_COMMIT
     
     # Enable namespace isolation
-    sudo sed -i '186 i \        - "--namespace-isolation=true"' multus-daemonset.yml
+    sudo sed -i '186 i \        - "--namespace-isolation=true"' deployments/multus-daemonset.yml
     
     # Install multus
     cat ./deployments/multus-daemonset-thick.yml | kubectl apply -f - >> $INSTALL_DIR/multus_install.log 2>&1
