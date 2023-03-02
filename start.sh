@@ -33,7 +33,7 @@ configure_docker_storage() {
 disable_swap() {
     # Turn swap off and comment out swap line in /etc/fstab
     sudo swapoff -a
-    if [ $? -eq 0 ]; then   
+    if [ $? -eq 0 ]; then
         printf "%s: %s\n" "$(date +"%T.%N")" "Turned off swap"
     else
         echo "***Error: Failed to turn off swap, which is necessary for Kubernetes"
@@ -50,7 +50,7 @@ setup_secondary() {
         case $cmd in
             *"kube"*)
                 MY_CMD=$cmd
-                break 
+                break
                 ;;
             *)
 	    	printf "%s: %s\n" "$(date +"%T.%N")" "Read: $cmd"
@@ -118,7 +118,7 @@ apply_flannel() {
         NUM_RUNNING=$((NUM_PODS-NUM_RUNNING))
     done
     printf "%s: %s\n" "$(date +"%T.%N")" "Flannel pods running!"
-    
+
     # wait for kube-system pods to be in ready state
     printf "%s: %s\n" "$(date +"%T.%N")" "Waiting for all system pods to have status of 'Running': "
     NUM_PODS=$(kubectl get pods -n kube-system | wc -l)
@@ -142,7 +142,7 @@ add_cluster_nodes() {
     NUM_REGISTERED=$(($1-NUM_REGISTERED+1))
     counter=0
     while [ "$NUM_REGISTERED" -ne 0 ]
-    do 
+    do
 	      sleep 2
         printf "%s: %s\n" "$(date +"%T.%N")" "Registering nodes, attempt #$counter, registered=$NUM_REGISTERED"
         for (( i=2; i<=$1; i++ ))
@@ -155,7 +155,7 @@ add_cluster_nodes() {
         done
 	      counter=$((counter+1))
         NUM_REGISTERED=$(kubectl get nodes | wc -l)
-        NUM_REGISTERED=$(($1-NUM_REGISTERED+1)) 
+        NUM_REGISTERED=$(($1-NUM_REGISTERED+1))
     done
 
     printf "%s: %s\n" "$(date +"%T.%N")" "Waiting for all nodes to have status of 'Ready': "
@@ -177,10 +177,10 @@ apply_multus() {
     git clone https://github.com/k8snetworkplumbingwg/multus-cni.git
     cd multus-cni
     git checkout $MULTUS_COMMIT
-    
+
     # Enable namespace isolation
     sudo sed -i '163 i \            - "-namespace-isolation=true"' deployments/multus-daemonset-thick.yml
-    
+
     # Install multus
     cat ./deployments/multus-daemonset-thick.yml | kubectl apply -f - >> $INSTALL_DIR/multus_install.log 2>&1
     if [ $? -ne 0 ]; then
@@ -255,7 +255,7 @@ if [ $1 == $SECONDARY_ARG ] ; then
         printf "%s: %s\n" "$(date +"%T.%N")" "Start Kubernetes is $3, done!"
         exit 0
     fi
-    
+
     # Use second argument (node IP) to replace filler in kubeadm configuration
     sudo sed -i.bak "s/REPLACE_ME_WITH_IP/$2/g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
@@ -284,10 +284,10 @@ sudo sed -i.bak "s/REPLACE_ME_WITH_IP/$2/g" /etc/systemd/system/kubelet.service.
 setup_primary $2
 
 # Apply flannel networking
-apply_flannel
+# apply_flannel
 
 # Install multus CNI plugin
-apply_multus
+# apply_multus
 
 # Coordinate master to add nodes to the kubernetes cluster
 # Argument is number of nodes
